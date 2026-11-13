@@ -33,7 +33,20 @@ header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;p
 h1{margin:0;font-size:21px;font-weight:900;font-style:italic;letter-spacing:.5px;white-space:nowrap;
   background:linear-gradient(90deg,#fff 0%,var(--accent) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
 h1 span{letter-spacing:2px}
-.sub{font-size:11px;color:var(--muted);white-space:nowrap}
+.teambtn{max-width:46%;height:32px;padding:0 12px;border-radius:999px;background:var(--panel2);border:1.5px solid var(--line);
+  font-size:13px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;align-self:center}
+.teambtn.on{border-color:var(--accent);color:var(--accent)}
+.sheet{position:fixed;inset:0;z-index:8;background:#000a;display:flex;align-items:flex-end;justify-content:center}
+.card{width:min(100%,460px);max-height:82dvh;overflow:auto;background:var(--panel);border:1px solid var(--line);border-radius:18px 18px 0 0;
+  padding:16px 16px calc(16px + env(safe-area-inset-bottom))}
+.card h2{margin:0 0 10px;font-size:17px}
+.card p{margin:0 0 10px;font-size:13px;line-height:1.5;color:var(--muted)}
+.card .item{display:block;width:100%;min-height:48px;margin-bottom:6px;padding:0 14px;text-align:left;border-radius:11px;
+  background:var(--panel2);border:1.5px solid var(--line);font-size:15px;font-weight:700;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.card .item.on{border-color:var(--accent);color:var(--accent)}
+.card input{display:block;width:100%;height:48px;margin-bottom:8px;padding:0 12px;border-radius:11px;border:1.5px solid var(--line);
+  background:#0b1d2a;color:var(--text);font:inherit;font-size:16px;-webkit-user-select:text;user-select:text}
+.card .row{display:flex;gap:6px;margin-top:6px}
 .court{flex:1 1 0;min-height:0;display:flex;justify-content:center;padding:0 8px}
 .court svg{height:100%;width:100%;display:block;touch-action:none}
 .panel{padding:8px 12px 10px;background:var(--panel);border-top:1px solid var(--line);border-radius:16px 16px 0 0}
@@ -64,7 +77,9 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
     grid-template-areas:"court head" "court panel";column-gap:8px}
   header{grid-area:head;flex-direction:column;align-items:flex-start;padding:18px 18px 4px;gap:2px}
   h1{font-size:clamp(22px,3.4vw,34px)}
-  .sub{font-size:13px}
+  .teambtn{max-width:100%;height:38px;font-size:15px;margin-top:8px;align-self:flex-start}
+  .sheet{align-items:center}
+  .card{border-radius:18px;padding-bottom:16px}
   .court{grid-area:court;padding:12px 0 12px 12px}
   .panel{grid-area:panel;align-self:center;margin:0 14px 14px 6px;border-radius:18px;border:1px solid var(--line);padding:14px}
   .chips{grid-template-columns:repeat(2,1fr);gap:8px}
@@ -90,7 +105,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 <div class="app" id="app">
   <header>
     <h1>VOLLYBALL <span>MANIA</span></h1>
-    <div class="sub">9인제 수비 포메이션 시뮬레이터</div>
+    <button class="teambtn hide" id="btnTeam"></button>
   </header>
 
   <main class="court">
@@ -160,6 +175,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
     </div>
   </section>
 </div>
+<div class="sheet hide" id="sheet"><div class="card" id="card"></div></div>
 <div class="toast" id="toast"></div>
 
 <script>
@@ -168,6 +184,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 const NS = 'http://www.w3.org/2000/svg';
 const NET = 34;                       // SVG y 좌표상의 네트 위치
 const KEY = 'vollyball-mania.v1';
+const API_URL = '';                 // 팀 저장 서버(Cloudflare Worker) 주소
 const $ = id => document.getElementById(id);
 
 /* ---------- 좌표계 ----------
@@ -212,10 +229,9 @@ const PATTERNS = [
 const clone = o => JSON.parse(JSON.stringify(o));
 
 /* ---------- 저장 데이터 ---------- */
-function load() {
+function merge(s) {            // 저장본을 초기값 위에 덮어 완전한 데이터로 만든다
   const d = clone(DEFAULTS);
   try {
-    const s = JSON.parse(localStorage.getItem(KEY) || 'null');
     if (s) for (const k of Object.keys(d)) {
       const v = s[k]; if (!v) continue;
       if (Array.isArray(v.pos) && v.pos.length === 9) d[k].pos = v.pos;
@@ -224,12 +240,26 @@ function load() {
   } catch (e) {}
   return d;
 }
+function load() {
+  let s = null;
+  try { s = JSON.parse(localStorage.getItem(KEY) || 'null'); } catch (e) {}
+  return merge(s);
+}
 function persist() {
   try { localStorage.setItem(KEY, JSON.stringify(saved)); return true; } catch (e) { return false; }
 }
 const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
 
-let saved = load();
+/* 팀: 서버에 팀 이름으로 저장된 위치를 불러와 쓴다. 팀을 고르지 않으면 이 기기에만 저장 */
+const API = String(window.VBM_API || API_URL).replace(/\/$/, '');
+const TEAM_KEY = 'vollyball-mania.team', PW_KEY = 'vollyball-mania.pw', TCACHE_KEY = 'vollyball-mania.teamdata';
+const lsGet = (k, d) => { try { const v = JSON.parse(localStorage.getItem(k)); return v == null ? d : v; } catch (e) { return d; } };
+const lsSet = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+let team = API ? lsGet(TEAM_KEY, '') : '';
+const pws = lsGet(PW_KEY, {});        // 팀별 비밀번호(이 기기에서 한 번 입력하면 기억)
+const tcache = lsGet(TCACHE_KEY, null);
+
+let saved = team ? merge(tcache && tcache.name === team ? tcache.data : null) : load();
 let work = null;            // 편집 중인 임시본
 let editing = false;
 let current = 'base';
@@ -423,6 +453,10 @@ function refreshUI() {
   $('editActions').classList.toggle('hide', !editing);
   $('btnPlay').disabled = false;
   svg.classList.toggle('editing', editing);
+  const tb = $('btnTeam');
+  tb.classList.toggle('hide', !API || editing);
+  tb.classList.toggle('on', !!team);
+  tb.textContent = team ? `👥 ${team}` : '👥 팀 선택';
 }
 function select(id) {
   if (id === current && !editing) { play(true); return; }
@@ -441,11 +475,27 @@ $('btnEdit').onclick = () => {
   stopAnim(); editing = true; work = clone(saved);
   cur = clone(work[current].pos); refreshUI(); draw();
 };
-$('btnSave').onclick = () => {
-  saved = clone(work); editing = false; work = null;
-  const ok = persist();
+$('btnSave').onclick = async () => {
+  let ok, msg;
+  if (team) {                          // 선택한 팀 이름으로 서버에 저장
+    const pw = pws[team] || await askPassword(team);
+    if (!pw) return;
+    const btn = $('btnSave'); btn.disabled = true;
+    let r;
+    try { r = await api('PUT', '/teams/' + encodeURIComponent(team), { password: pw, data: work }); }
+    catch (e) { r = { ok: false, status: 0 }; }
+    btn.disabled = false;
+    if (r.status === 401) { delete pws[team]; lsSet(PW_KEY, pws); toast('비밀번호가 맞지 않습니다'); return; }
+    if (!r.ok) { toast(r.status === 404 ? '서버에 이 팀이 없습니다' : '서버 저장 실패 · 연결을 확인하세요'); return; }
+    pws[team] = pw; lsSet(PW_KEY, pws);
+    saved = clone(work); lsSet(TCACHE_KEY, { name: team, data: saved });
+    ok = true; msg = `「${team}」 팀에 저장되었습니다`;
+  } else {
+    saved = clone(work); ok = persist(); msg = '이 기기에 저장되었습니다';
+  }
+  editing = false; work = null;
   cur = clone(saved[current].pos); refreshUI(); draw();
-  toast(ok ? '저장되었습니다' : '저장 실패: 브라우저 저장소를 사용할 수 없습니다');
+  toast(ok ? msg : '저장 실패: 브라우저 저장소를 사용할 수 없습니다');
 };
 $('btnCancel').onclick = () => {
   stopAnim(); editing = false; work = null;
@@ -502,7 +552,103 @@ svg.addEventListener('pointercancel', endDrag);
 document.addEventListener('gesturestart', e => e.preventDefault());
 document.addEventListener('dblclick', e => e.preventDefault());
 
+/* ---------- 팀 선택 화면 ---------- */
+async function api(method, path, body) {
+  const r = await fetch(API + path, { method, cache: 'no-store',
+    headers: body ? { 'Content-Type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined });
+  let j = {}; try { j = await r.json(); } catch (e) {}
+  return { status: r.status, ok: r.ok, body: j };
+}
+function setTeam(name, data) {
+  stopAnim(); team = name; lsSet(TEAM_KEY, name);
+  if (name) { saved = merge(data); lsSet(TCACHE_KEY, { name, data: saved }); } else saved = load();
+  editing = false; work = null;
+  cur = clone(saved[current].pos); refreshUI(); draw();
+}
+const sheet = $('sheet'), card = $('card');
+let sheetDone = null;
+function h(tag, props, ...kids) { const e = document.createElement(tag); Object.assign(e, props || {}); e.append(...kids); return e; }
+function openSheet(...kids) { card.replaceChildren(...kids); sheet.classList.remove('hide'); }
+function closeSheet(v) {
+  sheet.classList.add('hide'); card.replaceChildren();
+  const d = sheetDone; sheetDone = null; if (d) d(v === undefined ? null : v);
+}
+sheet.addEventListener('click', e => { if (e.target === sheet) closeSheet(); });
+
+async function openTeams() {
+  openSheet(h('h2', { textContent: '팀 선택' }), h('p', { textContent: '불러오는 중…' }));
+  let r;
+  try { r = await api('GET', '/teams'); } catch (e) { r = { ok: false }; }
+  if (sheet.classList.contains('hide')) return;
+  const kids = [h('h2', { textContent: '팀 선택' })];
+  kids.push(h('button', { className: 'item' + (team ? '' : ' on'), textContent: '📱 내 기기 (서버에 저장 안 함)',
+    onclick: () => { setTeam(''); closeSheet(); toast('이 기기에 저장된 위치를 표시합니다'); } }));
+  if (!r.ok) kids.push(h('p', { textContent: '서버에 연결할 수 없어 팀 목록을 불러오지 못했습니다.' }));
+  else for (const t of r.body.teams || []) {
+    kids.push(h('button', { className: 'item' + (t.name === team ? ' on' : ''), textContent: '👥 ' + t.name, onclick: () => pickTeam(t.name) }));
+  }
+  kids.push(h('div', { className: 'row' },
+    h('button', { className: 'btn primary', textContent: '+ 새 팀 추가', onclick: newTeamForm }),
+    h('button', { className: 'btn', textContent: '닫기', onclick: () => closeSheet() })));
+  openSheet(...kids);
+}
+async function pickTeam(name) {
+  let r;
+  try { r = await api('GET', '/teams/' + encodeURIComponent(name)); } catch (e) { r = { ok: false }; }
+  if (!r.ok) { toast('팀을 불러오지 못했습니다'); return; }
+  setTeam(r.body.name, r.body.data); closeSheet();
+  toast(`「${r.body.name}」 팀의 위치를 표시합니다`);
+}
+function newTeamForm() {
+  const name = h('input', { placeholder: '팀 이름 (20자 이내)', maxLength: 20, autocomplete: 'off' });
+  const pw = h('input', { placeholder: '비밀번호 (4자 이상)', type: 'password', maxLength: 64, autocomplete: 'new-password' });
+  const go = h('button', { className: 'btn primary', textContent: '만들기' });
+  go.onclick = async () => {
+    const n = name.value.trim(), p = pw.value;
+    if (!n) { toast('팀 이름을 입력하세요'); return; }
+    if (p.length < 4) { toast('비밀번호는 4자 이상이어야 합니다'); return; }
+    go.disabled = true;
+    let r;
+    try { r = await api('PUT', '/teams/' + encodeURIComponent(n), { password: p, create: true, data: saved }); } catch (e) { r = { ok: false, status: 0, body: {} }; }
+    go.disabled = false;
+    if (!r.ok) {
+      toast(r.status === 409 ? '이미 있는 팀 이름입니다' : r.body.error === 'bad_name' ? '쓸 수 없는 팀 이름입니다'
+        : r.status === 403 ? '팀 수가 한도에 도달했습니다' : '팀을 만들지 못했습니다 · 연결을 확인하세요');
+      return;
+    }
+    pws[r.body.name] = p; lsSet(PW_KEY, pws);
+    setTeam(r.body.name, saved); closeSheet();
+    toast(`「${r.body.name}」 팀을 만들었습니다`);
+  };
+  openSheet(h('h2', { textContent: '새 팀 추가' }),
+    h('p', { textContent: '지금 화면의 위치가 새 팀의 시작 위치로 저장됩니다. 비밀번호는 이 팀의 위치를 수정·저장할 때 필요하며, 잊으면 되찾을 수 없습니다.' }),
+    name, pw,
+    h('div', { className: 'row' }, go, h('button', { className: 'btn', textContent: '취소', onclick: openTeams })));
+  name.focus();
+}
+function askPassword(name) {
+  return new Promise(res => {
+    const pw = h('input', { placeholder: '비밀번호', type: 'password', maxLength: 64, autocomplete: 'current-password' });
+    const ok = () => { if (pw.value) closeSheet(pw.value); };
+    pw.onkeydown = e => { if (e.key === 'Enter') ok(); };
+    openSheet(h('h2', { textContent: `「${name}」 팀 비밀번호` }),
+      h('p', { textContent: '이 팀의 위치를 저장하려면 팀을 만들 때 정한 비밀번호가 필요합니다.' }), pw,
+      h('div', { className: 'row' }, h('button', { className: 'btn save', textContent: '저장', onclick: ok }),
+        h('button', { className: 'btn', textContent: '취소', onclick: () => closeSheet() })));
+    sheetDone = res; pw.focus();
+  });
+}
+$('btnTeam').onclick = openTeams;
+
 refreshUI(); draw();
+
+if (team) {                            // 시작할 때 서버의 최신 위치로 갱신 (오프라인이면 마지막으로 받은 내용 사용)
+  api('GET', '/teams/' + encodeURIComponent(team)).then(r => {
+    if (editing) return;
+    if (r.ok) setTeam(r.body.name, r.body.data);
+    else if (r.status === 404) { setTeam(''); toast('선택했던 팀이 서버에 없어 내 기기 위치를 표시합니다'); }
+  }).catch(() => {});
+}
 
 if ('serviceWorker' in navigator && location.protocol === 'https:') {
   navigator.serviceWorker.register('sw.js').catch(() => {});

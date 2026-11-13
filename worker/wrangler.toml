@@ -1,0 +1,8 @@
+# 직접 배포할 때: npx wrangler kv namespace create TEAMS 로 만든 id 를 아래에 넣고 npx wrangler deploy
+name = "vollyball-mania"
+main = "src/index.js"
+compatibility_date = "2026-01-01"
+
+[[kv_namespaces]]
+binding = "TEAMS"
+id = "REPLACE_WITH_KV_NAMESPACE_ID"
