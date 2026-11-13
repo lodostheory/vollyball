@@ -72,8 +72,9 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
   background:#fff;color:#0b1d2a;font-weight:800;font-size:13px;padding:9px 16px;border-radius:999px;transition:all .25s;z-index:9;box-shadow:0 6px 20px #0008}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 
-/* 폴더블(펼침)·태블릿·가로모드: 코트 왼쪽, 조작부 오른쪽 */
-@media (min-aspect-ratio: 4/5){
+/* 가로로 넓은 화면(폰 가로모드·태블릿 가로): 코트 왼쪽, 조작부 오른쪽.
+   폴더블 펼침처럼 정사각형에 가까운 화면은 세로 화면과 같은 배치(코트 위, 버튼 아래)를 쓴다 */
+@media (min-aspect-ratio: 5/4){
   .app{display:grid;grid-template-columns:min(62vw,calc((100dvh - 24px) * 0.74)) 1fr;grid-template-rows:auto 1fr;
     grid-template-areas:"court head" "court panel";column-gap:8px}
   header{grid-area:head;flex-direction:column;align-items:flex-start;padding:18px 18px 4px;gap:2px}
@@ -83,14 +84,19 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
   .card{border-radius:18px;padding-bottom:16px}
   .court{grid-area:court;padding:12px 0 12px 12px}
   .panel{grid-area:panel;align-self:center;margin:0 14px 14px 6px;border-radius:18px;border:1px solid var(--line);padding:14px}
-  .chips{grid-template-columns:repeat(2,1fr);gap:8px}
-  .chip{height:clamp(40px,7.5dvh,56px);font-size:16px;letter-spacing:0}
+  .chip{height:clamp(40px,7.5dvh,56px);font-size:clamp(11px,1.5vw,15px)}
   .btn{height:clamp(42px,7.5dvh,54px);font-size:15px}
   .actions{flex-wrap:wrap}
   .status{flex-direction:column;align-items:flex-start}
 }
-@media (min-aspect-ratio: 4/5) and (max-height:420px){
-  .chips{grid-template-columns:repeat(7,1fr)} .chip{font-size:12px} header{padding-top:8px}
+@media (min-aspect-ratio: 5/4) and (max-height:420px){
+  header{padding-top:8px}
+}
+
+@media (min-width:600px) and (max-aspect-ratio: 5/4){
+  h1{font-size:26px} .teambtn{height:38px;font-size:15px}
+  .panel{padding:12px 20px 14px} .chips{gap:8px}
+  .chip{height:52px;font-size:17px;letter-spacing:0} .btn{height:52px;font-size:16px} .status{font-size:14px} .status b{font-size:15px}
 }
 
 /* SVG */
