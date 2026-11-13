@@ -1,0 +1,506 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>VOLLYBALL MANIA</title>
+<meta name="description" content="9인제 배구 수비 포메이션 시뮬레이터">
+<meta name="theme-color" content="#0b1d2a">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="VB MANIA">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="icon-180.png">
+<style>
+:root{
+  --bg:#0b1d2a; --panel:#122a3a; --panel2:#1a3a4f; --line:#2a5068;
+  --text:#eef6fb; --muted:#8fb0c4; --accent:#ffb020; --accent-ink:#2a1a00;
+  --danger:#ff5a4e; --ok:#3ddc97;
+  --front:#ff8a3d; --mid:#ffd23f; --back:#4cc9f0;
+}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+html,body{margin:0;height:100%;background:var(--bg);color:var(--text);
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Pretendard","Noto Sans KR","Malgun Gothic",sans-serif;
+  overscroll-behavior:none;-webkit-user-select:none;user-select:none;touch-action:manipulation}
+body{position:fixed;inset:0;overflow:hidden}
+.app{
+  height:100dvh;display:flex;flex-direction:column;
+  padding:env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:8px;padding:8px 16px 6px}
+h1{margin:0;font-size:21px;font-weight:900;font-style:italic;letter-spacing:.5px;white-space:nowrap;
+  background:linear-gradient(90deg,#fff 0%,var(--accent) 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+h1 span{letter-spacing:2px}
+.sub{font-size:11px;color:var(--muted);white-space:nowrap}
+.court{flex:1 1 0;min-height:0;display:flex;justify-content:center;padding:0 8px}
+.court svg{height:100%;width:100%;display:block;touch-action:none}
+.panel{padding:8px 12px 10px;background:var(--panel);border-top:1px solid var(--line);border-radius:16px 16px 0 0}
+.status{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:20px;margin-bottom:7px;font-size:12px;color:var(--muted)}
+.status b{color:var(--text);font-size:13px}
+.status.edit b{color:var(--accent)}
+.legend{display:flex;gap:9px;white-space:nowrap}
+.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;vertical-align:-1px}
+.chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+button{font:inherit;color:inherit;border:0;cursor:pointer}
+.chip{height:42px;border-radius:11px;background:var(--panel2);border:1.5px solid var(--line);font-size:14px;font-weight:700;
+  transition:background .15s,transform .1s,border-color .15s;white-space:nowrap}
+.chip:active{transform:scale(.95)}
+.chip.on{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.chip .dot{display:inline-block;width:5px;height:5px;border-radius:50%;background:var(--ok);margin-left:4px;vertical-align:3px}
+.actions{display:flex;gap:6px;margin-top:8px}
+.btn{flex:1;height:44px;border-radius:11px;font-size:14px;font-weight:800;background:var(--panel2);border:1.5px solid var(--line)}
+.btn:active{transform:scale(.97)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.save{background:var(--ok);border-color:var(--ok);color:#00301c}
+.btn.ghost{flex:0 0 auto;padding:0 14px;color:var(--muted)}
+.hide{display:none!important}
+.toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 52px);transform:translate(-50%,-20px);opacity:0;pointer-events:none;
+  background:#fff;color:#0b1d2a;font-weight:800;font-size:13px;padding:9px 16px;border-radius:999px;transition:all .25s;z-index:9;box-shadow:0 6px 20px #0008}
+.toast.show{opacity:1;transform:translate(-50%,0)}
+
+/* 폴더블(펼침)·태블릿·가로모드: 코트 왼쪽, 조작부 오른쪽 */
+@media (min-aspect-ratio: 4/5){
+  .app{display:grid;grid-template-columns:min(58vw,calc((100dvh - 24px) * 0.674)) 1fr;grid-template-rows:auto 1fr;
+    grid-template-areas:"court head" "court panel";column-gap:8px}
+  header{grid-area:head;flex-direction:column;align-items:flex-start;padding:18px 18px 4px;gap:2px}
+  h1{font-size:clamp(22px,3.4vw,34px)}
+  .sub{font-size:13px}
+  .court{grid-area:court;padding:12px 0 12px 12px}
+  .panel{grid-area:panel;align-self:center;margin:0 14px 14px 6px;border-radius:18px;border:1px solid var(--line);padding:14px}
+  .chips{grid-template-columns:repeat(2,1fr);gap:8px}
+  .chip{height:clamp(40px,7.5dvh,56px);font-size:16px}
+  .btn{height:clamp(42px,7.5dvh,54px);font-size:15px}
+  .actions{flex-wrap:wrap}
+  .status{flex-direction:column;align-items:flex-start}
+}
+@media (min-aspect-ratio: 4/5) and (max-height:420px){
+  .chips{grid-template-columns:repeat(4,1fr)} header{padding-top:8px}
+}
+
+/* SVG */
+.pl{cursor:default}
+.editing .pl,.editing .opp,.editing #target{cursor:grab}
+.pl text,.opp text{font-weight:900;text-anchor:middle;dominant-baseline:central;pointer-events:none}
+.ring{fill:none;stroke:#fff;stroke-width:.9;stroke-dasharray:2.2 1.6;opacity:0}
+.editing .ring{opacity:.95;animation:spin 6s linear infinite;transform-box:fill-box;transform-origin:center}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+<div class="app" id="app">
+  <header>
+    <h1>VOLLYBALL <span>MANIA</span></h1>
+    <div class="sub">9인제 수비 포메이션 시뮬레이터</div>
+  </header>
+
+  <main class="court">
+    <svg id="svg" viewBox="-8 0 116 172" preserveAspectRatio="xMidYMid meet" aria-label="배구 코트">
+      <defs>
+        <linearGradient id="oppFade" x1="0" y1="0" x2="0" y2="1">
+          <stop offset="0" stop-color="#0b1d2a" stop-opacity="1"/>
+          <stop offset=".45" stop-color="#0b1d2a" stop-opacity="0"/>
+        </linearGradient>
+        <marker id="arrow" viewBox="0 0 10 10" refX="7" refY="5" markerWidth="5" markerHeight="5" orient="auto-start-reverse">
+          <path d="M0,0 L10,5 L0,10 z" fill="#ff3b30"/>
+        </marker>
+        <filter id="sh" x="-50%" y="-50%" width="200%" height="200%">
+          <feDropShadow dx="0" dy=".8" stdDeviation=".8" flood-color="#000" flood-opacity=".45"/>
+        </filter>
+      </defs>
+      <!-- 바닥 -->
+      <rect x="-8" y="0" width="116" height="172" fill="#0f4a52"/>
+      <!-- 상대 코트 (네트 쪽 일부만 표시) -->
+      <rect x="0" y="0" width="100" height="60" fill="#c9742e"/>
+      <rect x="-8" y="0" width="116" height="60" fill="url(#oppFade)"/>
+      <!-- 우리 코트 -->
+      <rect x="0" y="60" width="100" height="100" fill="#e8923f"/>
+      <g stroke="#fff" stroke-width=".9" fill="none">
+        <path d="M0,0 V160 H100 V0"/>
+      </g>
+      <text x="50" y="13" font-size="4.2" fill="#fff" opacity=".55" text-anchor="middle" font-weight="700">상대 코트</text>
+      <text x="50" y="155.5" font-size="4.2" fill="#fff" opacity=".4" text-anchor="middle" font-weight="700">우리 코트</text>
+      <!-- 이동 궤적 -->
+      <g id="trails"></g>
+      <!-- 네트 -->
+      <g>
+        <line x1="-5" y1="60" x2="105" y2="60" stroke="#10222e" stroke-width="2.6"/>
+        <line x1="-5" y1="60" x2="105" y2="60" stroke="#fff" stroke-width="1.6" stroke-dasharray="1.2 1.2"/>
+        <circle cx="-5" cy="60" r="1.8" fill="#dfe8ee"/><circle cx="105" cy="60" r="1.8" fill="#dfe8ee"/>
+      </g>
+      <!-- 공격 루트 -->
+      <g id="attack">
+        <line id="tossLine" stroke="#fff" stroke-width=".7" stroke-dasharray="1.5 1.5" opacity=".7"/>
+        <line id="route" stroke="#ff3b30" stroke-width="1.8" stroke-linecap="round" marker-end="url(#arrow)"/>
+        <g id="target">
+          <circle r="9" fill="transparent"/>
+          <circle r="4.2" fill="#ff3b30" opacity=".25"/>
+          <circle r="4.2" fill="none" stroke="#ff3b30" stroke-width=".8"/>
+          <circle class="ring" r="6.4"/>
+        </g>
+      </g>
+      <g id="opps"></g>
+      <g id="players"></g>
+      <circle id="ball" r="2.6" fill="#fff36b" stroke="#1b4fd8" stroke-width=".7" filter="url(#sh)" pointer-events="none"/>
+    </svg>
+  </main>
+
+  <section class="panel">
+    <div class="status" id="status">
+      <span><b id="statusTitle"></b> <span id="statusHint"></span></span>
+      <span class="legend"><span><i style="background:var(--front)"></i>전위</span><span><i style="background:var(--mid)"></i>중위</span><span><i style="background:var(--back)"></i>후위</span></span>
+    </div>
+    <div class="chips" id="chips"></div>
+    <div class="actions" id="viewActions">
+      <button class="btn primary" id="btnPlay">▶ 다시 재생</button>
+      <button class="btn" id="btnEdit">✏️ 위치 편집</button>
+    </div>
+    <div class="actions hide" id="editActions">
+      <button class="btn save" id="btnSave">💾 저장</button>
+      <button class="btn" id="btnCancel">취소</button>
+      <button class="btn ghost" id="btnReset">초기값</button>
+    </div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+(() => {
+'use strict';
+const NS = 'http://www.w3.org/2000/svg';
+const NET = 60;                       // SVG y 좌표상의 네트 위치
+const KEY = 'vollyball-mania.v1';
+const $ = id => document.getElementById(id);
+
+/* ---------- 좌표계 ----------
+   x: 0(왼쪽) ~ 100(오른쪽)
+   y: 0 = 네트, +값 = 우리 코트(100 = 엔드라인), -값 = 상대 코트
+   선수 인덱스 0~8 → 등번호 1~9 (1·2·3 전위 / 4·5·6 중위 / 7·8·9 후위) */
+const MIR = [2,1,0,5,4,3,8,7,6];
+const mirPos = a => a.map((_, i) => [100 - a[MIR[i]][0], a[MIR[i]][1]]);
+const mx = p => [100 - p[0], p[1]];
+
+const BASE = [[20,12],[50,12],[80,12],[20,45],[50,45],[80,45],[20,80],[50,80],[80,80]];
+const LEFT = { // 상대 레프트 공격 = 화면 오른쪽에서 들어옴
+  pos:[[34,22],[74,5],[85,5],[14,40],[52,44],[80,28],[20,72],[52,84],[86,74]],
+  set:[40,-5], atk:[86,-7], target:[30,58] };
+const QUICK = { pos:[[39,5],[50,5],[61,5],[18,36],[50,30],[82,36],[22,70],[50,82],[78,70]],
+  set:[40,-5], atk:[54,-6], target:[52,50] };
+const BQ = { pos:[[36,12],[57,5],[67,5],[16,38],[46,36],[80,30],[22,70],[50,82],[80,72]],
+  set:[40,-5], atk:[62,-6], target:[44,56] };
+
+const DEFAULTS = {
+  base:  { pos: BASE },
+  left:  LEFT,
+  right: { pos: mirPos(LEFT.pos), set:[40,-5], atk: mx(LEFT.atk), target: mx(LEFT.target) },
+  quick: QUICK,
+  a:     { pos:[[35,5],[46,5],[58,6],[18,36],[46,30],[82,36],[22,70],[50,82],[78,70]],
+           set:[40,-5], atk:[49,-6], target:[43,52] },
+  b:     BQ,
+  ba:    { pos: mirPos(BQ.pos), set:[40,-5], atk:[31,-6], target:[54,56] },
+  time:  { pos:[[40,6],[55,5],[65,5],[16,38],[46,34],[80,30],[22,70],[50,82],[80,72]],
+           set:[40,-5], atk:[60,-8], decoy:[49,-5], target:[40,58] },
+};
+const PATTERNS = [
+  { id:'base',  name:'기본',    tag:''   },
+  { id:'left',  name:'레프트',  tag:'L'  },
+  { id:'right', name:'라이트',  tag:'R'  },
+  { id:'quick', name:'속공',    tag:'속' },
+  { id:'a',     name:'A속공',   tag:'A'  },
+  { id:'b',     name:'B속공',   tag:'B'  },
+  { id:'ba',    name:'BA속공',  tag:'BA' },
+  { id:'time',  name:'시간차',  tag:'시' },
+];
+const clone = o => JSON.parse(JSON.stringify(o));
+
+/* ---------- 저장 데이터 ---------- */
+function load() {
+  const d = clone(DEFAULTS);
+  try {
+    const s = JSON.parse(localStorage.getItem(KEY) || 'null');
+    if (s) for (const k of Object.keys(d)) {
+      const v = s[k]; if (!v) continue;
+      if (Array.isArray(v.pos) && v.pos.length === 9) d[k].pos = v.pos;
+      for (const f of ['set','atk','target','decoy']) if (d[k][f] && Array.isArray(v[f])) d[k][f] = v[f];
+    }
+  } catch (e) {}
+  return d;
+}
+function persist() {
+  try { localStorage.setItem(KEY, JSON.stringify(saved)); return true; } catch (e) { return false; }
+}
+const same = (a, b) => JSON.stringify(a) === JSON.stringify(b);
+
+let saved = load();
+let work = null;            // 편집 중인 임시본
+let editing = false;
+let current = 'base';
+let cur = clone(saved.base.pos);   // 화면에 그려진 현재 위치
+let animId = 0;
+const data = () => editing ? work : saved;
+
+/* ---------- SVG 구성 ---------- */
+const svg = $('svg');
+const el = (tag, attrs, parent) => {
+  const e = document.createElementNS(NS, tag);
+  for (const k in attrs) e.setAttribute(k, attrs[k]);
+  if (parent) parent.appendChild(e);
+  return e;
+};
+const rowColor = i => i < 3 ? 'var(--front)' : i < 6 ? 'var(--mid)' : 'var(--back)';
+
+const trails = [], ghosts = [], players = [];
+for (let i = 0; i < 9; i++) {
+  trails.push(el('line', { stroke:'#fff', 'stroke-width':.7, 'stroke-dasharray':'1.6 1.6', opacity:.55 }, $('trails')));
+  ghosts.push(el('circle', { r:4.6, fill:'none', stroke:'#fff', 'stroke-width':.6, 'stroke-dasharray':'1.4 1.4', opacity:.5 }, $('trails')));
+}
+for (let i = 0; i < 9; i++) {
+  const g = el('g', { class:'pl', 'data-k':'p' + i }, $('players'));
+  el('circle', { r:8.5, fill:'transparent' }, g);                       // 터치 영역
+  el('circle', { r:5.4, fill:rowColor(i), stroke:'#10222e', 'stroke-width':.9, filter:'url(#sh)' }, g);
+  el('circle', { class:'ring', r:7.2 }, g);
+  el('text', { 'font-size':6.2, fill:'#10222e', y:.3 }, g).textContent = i + 1;
+  players.push(g);
+}
+function oppMarker(k, fill, ink) {
+  const g = el('g', { class:'opp', 'data-k':k }, $('opps'));
+  el('circle', { r:8.5, fill:'transparent' }, g);
+  el('circle', { r:5, fill, stroke:'#fff', 'stroke-width':.9, filter:'url(#sh)' }, g);
+  el('circle', { class:'ring', r:6.8 }, g);
+  const t = el('text', { 'font-size':4.6, fill:ink, y:.2 }, g);
+  return { g, t };
+}
+const mSet = oppMarker('set', '#24465c', '#fff');     mSet.t.textContent = 'S';
+const mDecoy = oppMarker('decoy', '#7d8b95', '#fff'); mDecoy.t.textContent = '속';
+const mAtk = oppMarker('atk', '#ff3b30', '#fff');
+const gTarget = $('target'), route = $('route'), tossLine = $('tossLine'), ball = $('ball');
+gTarget.setAttribute('data-k', 'target');
+
+const tr = (g, p, s) => g.setAttribute('transform', `translate(${p[0]} ${p[1] + NET})` + (s ? ` scale(${s})` : ''));
+const lerp = (a, b, u) => [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
+const ease = u => u < .5 ? 4*u*u*u : 1 - Math.pow(-2*u + 2, 3) / 2;
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+const show = (e, on) => e.style.display = on ? '' : 'none';
+
+function setLine(l, a, b, shorten) {
+  let bx = b[0], by = b[1];
+  if (shorten) {
+    const dx = b[0]-a[0], dy = b[1]-a[1], d = Math.hypot(dx, dy) || 1;
+    const k = Math.max(0, d - shorten) / d; bx = a[0] + dx*k; by = a[1] + dy*k;
+  }
+  l.setAttribute('x1', a[0]); l.setAttribute('y1', a[1] + NET);
+  l.setAttribute('x2', bx);   l.setAttribute('y2', by + NET);
+}
+
+/* 선수 + 궤적 */
+function drawPlayers() {
+  const base = data().base.pos, isBase = current === 'base';
+  for (let i = 0; i < 9; i++) {
+    tr(players[i], cur[i]);
+    const moved = !isBase && Math.hypot(cur[i][0]-base[i][0], cur[i][1]-base[i][1]) > 1.5;
+    show(trails[i], moved); show(ghosts[i], moved);
+    if (moved) {
+      setLine(trails[i], base[i], cur[i], 5.4);
+      ghosts[i].setAttribute('cx', base[i][0]); ghosts[i].setAttribute('cy', base[i][1] + NET);
+    }
+  }
+}
+/* 공격(정지 상태) */
+function drawAttack() {
+  const p = data()[current], on = current !== 'base';
+  show($('attack'), on); show(mAtk.g, on); show(mSet.g, on); show(mDecoy.g, on && !!p.decoy); show(ball, on);
+  if (!on) return;
+  mAtk.t.textContent = PATTERNS.find(x => x.id === current).tag;
+  mAtk.t.setAttribute('font-size', current === 'ba' ? 3.8 : 4.6);
+  tr(mSet.g, p.set); tr(mAtk.g, p.atk); if (p.decoy) tr(mDecoy.g, p.decoy);
+  tr(gTarget, p.target);
+  setLine(tossLine, p.set, p.atk, 5);
+  setLine(route, p.atk, p.target, 2.5);
+  route.style.opacity = 1; gTarget.style.opacity = 1; tossLine.style.opacity = .7;
+  tr(ball, p.target); ball.style.opacity = editing ? 0 : 1;
+}
+function draw() { drawPlayers(); drawAttack(); }
+
+/* ---------- 애니메이션 ---------- */
+function stopAnim() { cancelAnimationFrame(animId); animId = 0; }
+
+function play(fromBase) {
+  stopAnim();
+  const d = data(), p = d[current], isAtk = current !== 'base';
+  if (fromBase) cur = clone(d.base.pos);
+  const from = clone(cur), to = p.pos;
+  drawAttack();
+  const hold = fromBase ? 350 : 0;             // 기본 위치를 잠깐 보여준 뒤 출발
+  const slow = !!p.decoy;
+  const T_MOVE = slow ? 1000 : 850;            // 수비 이동
+  const T_TOSS = slow ? 680 : 460;             // 토스 도착
+  const T_HIT  = slow ? 860 : 640;             // 스파이크 시작
+  const T_FLY  = 300;                          // 스파이크 비행
+  const total = isAtk ? Math.max(T_MOVE, T_HIT + T_FLY) + 60 : T_MOVE;
+  if (isAtk) { route.style.opacity = 0; gTarget.style.opacity = .35; tr(ball, p.set); ball.style.opacity = 1; }
+  drawPlayers();
+  let t0 = 0;
+  const step = now => {
+    if (!t0) t0 = now;
+    const t = now - t0 - hold;
+    if (t >= 0) {
+      const u = ease(clamp(t / T_MOVE, 0, 1));
+      for (let i = 0; i < 9; i++) cur[i] = lerp(from[i], to[i], u);
+      drawPlayers();
+      if (isAtk) {
+        if (t < T_TOSS) {                       // 토스: 세터 → 공격수
+          const k = t / T_TOSS;
+          tr(ball, lerp(p.set, p.atk, k), 1 + .9 * Math.sin(Math.PI * k));
+        } else if (t < T_HIT) {
+          tr(ball, p.atk, 1.15);
+        } else {                                // 스파이크: 공격수 → 목표 지점
+          const k = clamp((t - T_HIT) / T_FLY, 0, 1), b = lerp(p.atk, p.target, k * k);
+          tr(ball, b, 1.15 - .15 * k);
+          route.style.opacity = 1; setLine(route, p.atk, b, 2.5);
+          gTarget.style.opacity = .35 + .65 * k;
+        }
+        if (p.decoy) {                          // 시간차: 속공수가 먼저 뜬다
+          const k = clamp((t - 120) / 380, 0, 1);
+          tr(mDecoy.g, p.decoy, 1 + .35 * Math.sin(Math.PI * k));
+        }
+        const j = clamp((t - (T_HIT - 220)) / 400, 0, 1);   // 공격수 점프
+        tr(mAtk.g, p.atk, 1 + .35 * Math.sin(Math.PI * j));
+      }
+    }
+    if (t < total) animId = requestAnimationFrame(step);
+    else { animId = 0; cur = clone(to); draw(); }
+  };
+  animId = requestAnimationFrame(step);
+}
+
+/* 편집 중 패턴 전환: 공 연출 없이 빠르게 이동 */
+function glide() {
+  stopAnim();
+  const from = clone(cur), to = data()[current].pos;
+  drawAttack();
+  let t0 = 0;
+  const step = now => {
+    if (!t0) t0 = now;
+    const u = clamp((now - t0) / 350, 0, 1), e = ease(u);
+    for (let i = 0; i < 9; i++) cur[i] = lerp(from[i], to[i], e);
+    drawPlayers();
+    if (u < 1) animId = requestAnimationFrame(step); else { animId = 0; cur = clone(to); draw(); }
+  };
+  animId = requestAnimationFrame(step);
+}
+
+/* ---------- UI ---------- */
+const chips = $('chips');
+PATTERNS.forEach(p => {
+  const b = document.createElement('button');
+  b.className = 'chip'; b.dataset.id = p.id; b.textContent = p.name;
+  b.onclick = () => select(p.id);
+  chips.appendChild(b);
+});
+function refreshUI() {
+  const d = data();
+  for (const b of chips.children) {
+    const id = b.dataset.id;
+    b.classList.toggle('on', id === current);
+    const custom = !same(d[id], DEFAULTS[id]);
+    b.innerHTML = PATTERNS.find(x => x.id === id).name + (custom ? '<span class="dot"></span>' : '');
+  }
+  const name = PATTERNS.find(x => x.id === current).name;
+  $('status').classList.toggle('edit', editing);
+  $('statusTitle').textContent = editing ? `편집 중 · ${name}` : (current === 'base' ? '기본 위치' : `상대 ${name} 공격`);
+  $('statusHint').textContent = editing
+    ? (current === 'base' ? '선수를 끌어 옮기세요' : '선수·공격수·목표를 끌어 옮기세요')
+    : (current === 'base' ? '공격 패턴을 선택하세요' : '');
+  $('viewActions').classList.toggle('hide', editing);
+  $('editActions').classList.toggle('hide', !editing);
+  $('btnPlay').disabled = false;
+  svg.classList.toggle('editing', editing);
+}
+function select(id) {
+  if (id === current && !editing) { play(true); return; }
+  current = id;
+  refreshUI();
+  editing ? glide() : play(false);
+}
+let toastT = 0;
+function toast(msg) {
+  const t = $('toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toastT); toastT = setTimeout(() => t.classList.remove('show'), 1600);
+}
+
+$('btnPlay').onclick = () => play(true);
+$('btnEdit').onclick = () => {
+  stopAnim(); editing = true; work = clone(saved);
+  cur = clone(work[current].pos); refreshUI(); draw();
+};
+$('btnSave').onclick = () => {
+  saved = clone(work); editing = false; work = null;
+  const ok = persist();
+  cur = clone(saved[current].pos); refreshUI(); draw();
+  toast(ok ? '저장되었습니다' : '저장 실패: 브라우저 저장소를 사용할 수 없습니다');
+};
+$('btnCancel').onclick = () => {
+  stopAnim(); editing = false; work = null;
+  cur = clone(saved[current].pos); refreshUI(); draw();
+};
+$('btnReset').onclick = () => {
+  stopAnim();
+  work[current] = clone(DEFAULTS[current]);
+  refreshUI(); glide();
+  toast('초기값으로 되돌렸습니다 · 저장을 눌러 확정');
+};
+
+/* ---------- 드래그 ---------- */
+let drag = null;
+function svgPoint(ev) {
+  const m = svg.getScreenCTM().inverse();
+  const pt = new DOMPoint(ev.clientX, ev.clientY).matrixTransform(m);
+  return [pt.x, pt.y - NET];
+}
+svg.addEventListener('pointerdown', ev => {
+  if (!editing) return;
+  const g = ev.target.closest('[data-k]'); if (!g) return;
+  stopAnim(); cur = clone(work[current].pos); draw();
+  const k = g.dataset.k, p = svgPoint(ev);
+  const pos = k[0] === 'p' ? work[current].pos[+k.slice(1)] : work[current][k];
+  drag = { k, id: ev.pointerId, dx: pos[0] - p[0], dy: pos[1] - p[1] };
+  try { svg.setPointerCapture(ev.pointerId); } catch (e) {}
+  if (k[0] === 'p') g.parentNode.appendChild(g);      // 잡은 선수를 맨 위로
+  ev.preventDefault();
+});
+svg.addEventListener('pointermove', ev => {
+  if (!drag || ev.pointerId !== drag.id) return;
+  const p = svgPoint(ev);
+  let x = p[0] + drag.dx, y = p[1] + drag.dy;
+  const r = v => Math.round(v * 2) / 2;
+  const w = work[current];
+  if (drag.k[0] === 'p') {
+    const i = +drag.k.slice(1);
+    w.pos[i] = [r(clamp(x, -3, 103)), r(clamp(y, 5, 106))];
+    cur[i] = w.pos[i];
+  } else if (drag.k === 'target') {
+    w.target = [r(clamp(x, 1, 99)), r(clamp(y, 4, 99))];
+  } else {
+    w[drag.k] = [r(clamp(x, -3, 103)), r(clamp(y, -52, -5))];
+  }
+  draw();
+});
+const endDrag = ev => {
+  if (!drag || ev.pointerId !== drag.id) return;
+  drag = null; refreshUI();
+};
+svg.addEventListener('pointerup', endDrag);
+svg.addEventListener('pointercancel', endDrag);
+document.addEventListener('gesturestart', e => e.preventDefault());
+document.addEventListener('dblclick', e => e.preventDefault());
+
+refreshUI(); draw();
+
+if ('serviceWorker' in navigator && location.protocol === 'https:') {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+})();
+</script>
+</body>
+</html>
