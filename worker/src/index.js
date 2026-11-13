@@ -2,11 +2,13 @@
 //   GET  /teams          팀 목록
 //   GET  /teams/:name    팀의 저장된 위치
 //   PUT  /teams/:name    { password, data } — 없으면 새로 만들고, 있으면 비밀번호 확인 후 덮어씀
+//   DELETE /teams/:name         { password } — 팀 삭제
+//   POST   /teams/:name/rename  { password, newName } — 팀 이름 변경
 const IDS = ['base', 'left', 'right', 'quick', 'a', 'b', 'ba', 'time'];
 const MAX_TEAMS = 300;
 const CORS = {
   'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Methods': 'GET,PUT,OPTIONS',
+  'Access-Control-Allow-Methods': 'GET,PUT,POST,DELETE,OPTIONS',
   'Access-Control-Allow-Headers': 'Content-Type',
   'Access-Control-Max-Age': '86400',
 };
@@ -47,7 +49,8 @@ export default {
   async fetch(req, env) {
     if (req.method === 'OPTIONS') return new Response(null, { status: 204, headers: CORS });
     const parts = new URL(req.url).pathname.split('/').filter(Boolean);
-    if (parts[0] !== 'teams' || parts.length > 2) return fail(404, 'not_found');
+    const renaming = parts.length === 3 && parts[2] === 'rename';
+    if (parts[0] !== 'teams' || (parts.length > 2 && !renaming)) return fail(404, 'not_found');
 
     if (parts.length === 1) {
       if (req.method !== 'GET') return fail(405, 'method_not_allowed');
@@ -68,11 +71,11 @@ export default {
     const key = 'team:' + name;
     const stored = await env.TEAMS.get(key, 'json');
 
+    if (renaming ? req.method !== 'POST' : !['GET', 'PUT', 'DELETE'].includes(req.method)) return fail(405, 'method_not_allowed');
     if (req.method === 'GET') {
       if (!stored) return fail(404, 'no_team');
       return json({ name: stored.name, data: stored.data, updatedAt: stored.updatedAt });
     }
-    if (req.method !== 'PUT') return fail(405, 'method_not_allowed');
 
     const text = await req.text();
     if (text.length > 20000) return fail(413, 'too_large');
@@ -80,6 +83,19 @@ export default {
     try { body = JSON.parse(text); } catch (e) { return fail(400, 'bad_json'); }
     const password = typeof body.password === 'string' ? body.password : '';
     if (password.length < 4 || password.length > 64) return fail(400, 'bad_password');
+    if (req.method !== 'PUT') {          // 삭제·이름 변경
+      if (!stored) return fail(404, 'no_team');
+      if (await hashPassword(password, stored.salt) !== stored.hash) return fail(401, 'wrong_password');
+      if (req.method === 'DELETE') { await env.TEAMS.delete(key); return json({ deleted: name }); }
+      const newName = cleanName(body.newName);
+      if (!newName) return fail(400, 'bad_name');
+      if (newName === name) return json({ name });
+      if (await env.TEAMS.get('team:' + newName)) return fail(409, 'team_exists');
+      const updatedAt = new Date().toISOString();
+      await env.TEAMS.put('team:' + newName, JSON.stringify({ ...stored, name: newName, updatedAt }), { metadata: { name: newName, updatedAt } });
+      await env.TEAMS.delete(key);
+      return json({ name: newName, updatedAt });
+    }
     const data = cleanData(body.data);
     if (!data) return fail(400, 'bad_data');
 

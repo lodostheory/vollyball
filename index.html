@@ -65,6 +65,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 .btn:active{transform:scale(.97)}
 .btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
 .btn.save{background:var(--ok);border-color:var(--ok);color:#00301c}
+.btn.danger{background:#3a1d22;border-color:var(--danger);color:#ffb3ad}
 .btn.ghost{flex:0 0 auto;padding:0 14px;color:var(--muted)}
 .hide{display:none!important}
 .toast{position:fixed;left:50%;top:calc(env(safe-area-inset-top) + 52px);transform:translate(-50%,-20px);opacity:0;pointer-events:none;
@@ -587,6 +588,9 @@ async function openTeams() {
   else for (const t of r.body.teams || []) {
     kids.push(h('button', { className: 'item' + (t.name === team ? ' on' : ''), textContent: '👥 ' + t.name, onclick: () => pickTeam(t.name) }));
   }
+  if (team) kids.push(h('div', { className: 'row' },
+    h('button', { className: 'btn', textContent: '✏️ 팀 이름 변경', onclick: renameForm }),
+    h('button', { className: 'btn danger', textContent: '🗑 팀 삭제', onclick: deleteForm })));
   kids.push(h('div', { className: 'row' },
     h('button', { className: 'btn primary', textContent: '+ 새 팀 추가', onclick: newTeamForm }),
     h('button', { className: 'btn', textContent: '닫기', onclick: () => closeSheet() })));
@@ -625,6 +629,56 @@ function newTeamForm() {
     name, pw,
     h('div', { className: 'row' }, go, h('button', { className: 'btn', textContent: '취소', onclick: openTeams })));
   name.focus();
+}
+function renameForm() {
+  const old = team;
+  const name = h('input', { placeholder: '새 팀 이름 (20자 이내)', maxLength: 20, autocomplete: 'off', value: old });
+  const pw = h('input', { placeholder: '비밀번호', type: 'password', maxLength: 64, autocomplete: 'current-password', value: pws[old] || '' });
+  const go = h('button', { className: 'btn primary', textContent: '변경' });
+  go.onclick = async () => {
+    const n = name.value.trim(), p = pw.value;
+    if (!n) { toast('새 팀 이름을 입력하세요'); return; }
+    if (!p) { toast('비밀번호를 입력하세요'); return; }
+    go.disabled = true;
+    let r;
+    try { r = await api('POST', '/teams/' + encodeURIComponent(old) + '/rename', { password: p, newName: n }); } catch (e) { r = { ok: false, status: 0, body: {} }; }
+    go.disabled = false;
+    if (!r.ok) {
+      toast(r.status === 401 ? '비밀번호가 맞지 않습니다' : r.status === 409 ? '이미 있는 팀 이름입니다'
+        : r.body.error === 'bad_name' ? '쓸 수 없는 팀 이름입니다' : r.status === 404 ? '서버에 이 팀이 없습니다' : '이름을 바꾸지 못했습니다 · 연결을 확인하세요');
+      return;
+    }
+    delete pws[old]; pws[r.body.name] = p; lsSet(PW_KEY, pws);
+    team = r.body.name; lsSet(TEAM_KEY, team); lsSet(TCACHE_KEY, { name: team, data: saved });
+    refreshUI(); closeSheet();
+    toast(`팀 이름을 「${team}」(으)로 바꿨습니다`);
+  };
+  openSheet(h('h2', { textContent: `「${old}」 팀 이름 변경` }),
+    h('p', { textContent: '저장된 위치와 비밀번호는 그대로 유지됩니다. 이 팀을 선택해 둔 다른 기기에서는 새 이름으로 다시 선택해야 합니다.' }),
+    name, pw,
+    h('div', { className: 'row' }, go, h('button', { className: 'btn', textContent: '취소', onclick: openTeams })));
+  name.focus();
+}
+function deleteForm() {
+  const old = team;
+  const pw = h('input', { placeholder: '비밀번호를 입력해 삭제 확인', type: 'password', maxLength: 64, autocomplete: 'off' });
+  const go = h('button', { className: 'btn danger', textContent: '삭제' });
+  go.onclick = async () => {
+    if (!pw.value) { toast('비밀번호를 입력하세요'); return; }
+    go.disabled = true;
+    let r;
+    try { r = await api('DELETE', '/teams/' + encodeURIComponent(old), { password: pw.value }); } catch (e) { r = { ok: false, status: 0 }; }
+    go.disabled = false;
+    if (!r.ok && r.status !== 404) { toast(r.status === 401 ? '비밀번호가 맞지 않습니다' : '삭제하지 못했습니다 · 연결을 확인하세요'); return; }
+    delete pws[old]; lsSet(PW_KEY, pws);
+    setTeam(''); closeSheet();
+    toast(`「${old}」 팀을 삭제했습니다`);
+  };
+  openSheet(h('h2', { textContent: `「${old}」 팀 삭제` }),
+    h('p', { textContent: '이 팀 이름으로 서버에 저장된 위치가 모두 지워지며 되돌릴 수 없습니다. 삭제하려면 팀 비밀번호를 입력하세요.' }),
+    pw,
+    h('div', { className: 'row' }, go, h('button', { className: 'btn', textContent: '취소', onclick: openTeams })));
+  pw.focus();
 }
 function askPassword(name) {
   return new Promise(res => {
