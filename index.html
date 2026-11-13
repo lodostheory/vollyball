@@ -314,6 +314,9 @@ const mSet = oppMarker('set', '#24465c', '#fff');     mSet.t.textContent = '세'
 const mDecoy = oppMarker('decoy', '#7d8b95', '#fff'); mDecoy.t.textContent = '속';
 const mAtk = oppMarker('atk', '#ff3b30', '#fff');
 const tossLine = $('tossLine'), ball = $('ball');
+const balls = [ball, ball.cloneNode(), ball.cloneNode()];     // 스파이크 때 세 코스로 하나씩 날아간다
+balls.slice(1).forEach(b => { b.removeAttribute('id'); ball.after(b); });
+const showExtra = on => balls.slice(1).forEach(b => show(b, on));
 /* 공격 화살표 3개: ①(공이 날아가는 주 코스) ② ③ */
 const TKEYS = ['target', 'target2', 'target3'];
 const routes = TKEYS.map(() => el('line', { stroke:'#ff3b30', 'stroke-width':1.8, 'stroke-linecap':'round', 'marker-end':'url(#arrow)' }, $('attack')));
@@ -359,7 +362,7 @@ function drawPlayers() {
 /* 공격(정지 상태) */
 function drawAttack() {
   const p = data()[current], on = current !== 'base';
-  show($('attack'), on); show($('targets'), on); show(mAtk.g, on); show(mSet.g, on); show(mDecoy.g, on && !!p.decoy); show(ball, on);
+  show($('attack'), on); show($('targets'), on); show(mAtk.g, on); show(mSet.g, on); show(mDecoy.g, on && !!p.decoy); show(ball, on); showExtra(on);
   if (!on) return;
   mAtk.t.textContent = PATTERNS.find(x => x.id === current).tag;
   mAtk.t.setAttribute('font-size', current === 'ba' ? 3.8 : 4.6);
@@ -367,7 +370,7 @@ function drawAttack() {
   TKEYS.forEach((k, i) => { tr(gTargets[i], p[k]); setLine(routes[i], p.atk, p[k], 2.5); routes[i].style.opacity = 1; gTargets[i].style.opacity = 1; });
   setLine(tossLine, p.set, p.atk, 5);
   tossLine.style.opacity = .7;
-  tr(ball, p.target); ball.style.opacity = editing ? 0 : 1;
+  TKEYS.forEach((k, i) => { tr(balls[i], p[k]); balls[i].style.opacity = editing ? 0 : 1; });
 }
 function draw() { drawPlayers(); drawAttack(); }
 
@@ -387,7 +390,7 @@ function play(fromBase) {
   const T_HIT  = slow ? 860 : 640;             // 스파이크 시작
   const T_FLY  = 300;                          // 스파이크 비행
   const total = isAtk ? Math.max(T_MOVE, T_HIT + T_FLY) + 60 : T_MOVE;
-  if (isAtk) { routes.forEach(r => r.style.opacity = 0); gTargets.forEach(g => g.style.opacity = .35); tr(ball, p.set); ball.style.opacity = 1; }
+  if (isAtk) { routes.forEach(r => r.style.opacity = 0); gTargets.forEach(g => g.style.opacity = .35); tr(ball, p.set); ball.style.opacity = 1; showExtra(false); }
   drawPlayers();
   let t0 = 0;
   const step = now => {
@@ -404,8 +407,9 @@ function play(fromBase) {
         } else if (t < T_HIT) {
           tr(ball, p.atk, 1.15);
         } else {                                // 스파이크: 공격수 → 목표 지점
-          const k = clamp((t - T_HIT) / T_FLY, 0, 1), b = lerp(p.atk, p.target, k * k);
-          tr(ball, b, 1.15 - .15 * k);
+          const k = clamp((t - T_HIT) / T_FLY, 0, 1);
+          showExtra(true);
+          TKEYS.forEach((key, i) => tr(balls[i], lerp(p.atk, p[key], k * k), 1.15 - .15 * k));
           TKEYS.forEach((key, i) => {             // 화살표 3개가 동시에 뻗는다
             routes[i].style.opacity = 1; setLine(routes[i], p.atk, lerp(p.atk, p[key], k * k), 2.5);
             gTargets[i].style.opacity = .35 + .65 * k;
