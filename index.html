@@ -40,8 +40,6 @@ h1 span{letter-spacing:2px}
 .status{display:flex;align-items:center;justify-content:space-between;gap:8px;min-height:20px;margin-bottom:7px;font-size:12px;color:var(--muted)}
 .status b{color:var(--text);font-size:13px}
 .status.edit b{color:var(--accent)}
-.legend{display:flex;gap:9px;white-space:nowrap}
-.legend i{display:inline-block;width:9px;height:9px;border-radius:50%;margin-right:3px;vertical-align:-1px}
 .chips{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
 button{font:inherit;color:inherit;border:0;cursor:pointer}
 .chip{height:42px;border-radius:11px;background:var(--panel2);border:1.5px solid var(--line);font-size:14px;font-weight:700;
@@ -62,7 +60,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 
 /* 폴더블(펼침)·태블릿·가로모드: 코트 왼쪽, 조작부 오른쪽 */
 @media (min-aspect-ratio: 4/5){
-  .app{display:grid;grid-template-columns:min(58vw,calc((100dvh - 24px) * 0.674)) 1fr;grid-template-rows:auto 1fr;
+  .app{display:grid;grid-template-columns:min(62vw,calc((100dvh - 24px) * 0.74)) 1fr;grid-template-rows:auto 1fr;
     grid-template-areas:"court head" "court panel";column-gap:8px}
   header{grid-area:head;flex-direction:column;align-items:flex-start;padding:18px 18px 4px;gap:2px}
   h1{font-size:clamp(22px,3.4vw,34px)}
@@ -96,7 +94,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
   </header>
 
   <main class="court">
-    <svg id="svg" viewBox="-8 0 116 172" preserveAspectRatio="xMidYMid meet" aria-label="배구 코트">
+    <svg id="svg" viewBox="-4 0 108 146" preserveAspectRatio="xMidYMid meet" aria-label="배구 코트">
       <defs>
         <linearGradient id="oppFade" x1="0" y1="0" x2="0" y2="1">
           <stop offset="0" stop-color="#0b1d2a" stop-opacity="1"/>
@@ -110,24 +108,24 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
         </filter>
       </defs>
       <!-- 바닥 -->
-      <rect x="-8" y="0" width="116" height="172" fill="#0f4a52"/>
+      <rect x="-4" y="0" width="108" height="146" fill="#0f4a52"/>
       <!-- 상대 코트 (네트 쪽 일부만 표시) -->
-      <rect x="0" y="0" width="100" height="60" fill="#c9742e"/>
-      <rect x="-8" y="0" width="116" height="60" fill="url(#oppFade)"/>
+      <rect x="0" y="0" width="100" height="34" fill="#c9742e"/>
+      <rect x="-4" y="0" width="108" height="34" fill="url(#oppFade)"/>
       <!-- 우리 코트 -->
-      <rect x="0" y="60" width="100" height="100" fill="#e8923f"/>
+      <rect x="0" y="34" width="100" height="100" fill="#e8923f"/>
+      <g id="zones"></g>
       <g stroke="#fff" stroke-width=".9" fill="none">
-        <path d="M0,0 V160 H100 V0"/>
+        <path d="M0,0 V134 H100 V0"/>
       </g>
-      <text x="50" y="13" font-size="4.2" fill="#fff" opacity=".55" text-anchor="middle" font-weight="700">상대 코트</text>
-      <text x="50" y="155.5" font-size="4.2" fill="#fff" opacity=".4" text-anchor="middle" font-weight="700">우리 코트</text>
+      <text x="50" y="7" font-size="3.8" fill="#fff" opacity=".55" text-anchor="middle" font-weight="700">상대 코트</text>
       <!-- 이동 궤적 -->
       <g id="trails"></g>
       <!-- 네트 -->
       <g>
-        <line x1="-5" y1="60" x2="105" y2="60" stroke="#10222e" stroke-width="2.6"/>
-        <line x1="-5" y1="60" x2="105" y2="60" stroke="#fff" stroke-width="1.6" stroke-dasharray="1.2 1.2"/>
-        <circle cx="-5" cy="60" r="1.8" fill="#dfe8ee"/><circle cx="105" cy="60" r="1.8" fill="#dfe8ee"/>
+        <line x1="-2.5" y1="34" x2="102.5" y2="34" stroke="#10222e" stroke-width="2.6"/>
+        <line x1="-2.5" y1="34" x2="102.5" y2="34" stroke="#fff" stroke-width="1.6" stroke-dasharray="1.2 1.2"/>
+        <circle cx="-2.5" cy="34" r="1.5" fill="#dfe8ee"/><circle cx="102.5" cy="34" r="1.5" fill="#dfe8ee"/>
       </g>
       <!-- 공격 루트 -->
       <g id="attack">
@@ -149,7 +147,6 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
   <section class="panel">
     <div class="status" id="status">
       <span><b id="statusTitle"></b> <span id="statusHint"></span></span>
-      <span class="legend"><span><i style="background:var(--front)"></i>전위</span><span><i style="background:var(--mid)"></i>중위</span><span><i style="background:var(--back)"></i>후위</span></span>
     </div>
     <div class="chips" id="chips"></div>
     <div class="actions" id="viewActions">
@@ -169,7 +166,7 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 (() => {
 'use strict';
 const NS = 'http://www.w3.org/2000/svg';
-const NET = 60;                       // SVG y 좌표상의 네트 위치
+const NET = 34;                       // SVG y 좌표상의 네트 위치
 const KEY = 'vollyball-mania.v1';
 const $ = id => document.getElementById(id);
 
@@ -248,7 +245,17 @@ const el = (tag, attrs, parent) => {
   if (parent) parent.appendChild(e);
   return e;
 };
-const rowColor = i => i < 3 ? 'var(--front)' : i < 6 ? 'var(--mid)' : 'var(--back)';
+const LABELS = ['S','A','BA','L','M','R','LB','MB','RB'];
+const COLORS = ['#ff8a3d','#ff6b9d','#c792ff','#ffd23f','#9be564','#2ec4b6','#4cc9f0','#8fa8ff','#f4efe0'];
+/* 우리 코트 3×3 구역: 네트 쪽 왼쪽부터 시계방향(가운데가 9) */
+const ZONES = [[1,2,3],[8,9,4],[7,6,5]];
+for (const v of [100/3, 200/3]) {
+  el('line', { x1:v, y1:NET, x2:v, y2:NET+100, stroke:'#e6e9ec', 'stroke-width':.5, opacity:.6 }, $('zones'));
+  el('line', { x1:0, y1:NET+v, x2:100, y2:NET+v, stroke:'#e6e9ec', 'stroke-width':.5, opacity:.6 }, $('zones'));
+}
+ZONES.forEach((row, r) => row.forEach((n, c) => {
+  el('text', { x:c*100/3 + 2.2, y:NET + r*100/3 + 6.6, 'font-size':5.2, 'font-weight':800, fill:'#e6e9ec', opacity:.7 }, $('zones')).textContent = n;
+}));
 
 const trails = [], ghosts = [], players = [];
 for (let i = 0; i < 9; i++) {
@@ -258,9 +265,9 @@ for (let i = 0; i < 9; i++) {
 for (let i = 0; i < 9; i++) {
   const g = el('g', { class:'pl', 'data-k':'p' + i }, $('players'));
   el('circle', { r:8.5, fill:'transparent' }, g);                       // 터치 영역
-  el('circle', { r:5.4, fill:rowColor(i), stroke:'#10222e', 'stroke-width':.9, filter:'url(#sh)' }, g);
+  el('circle', { r:5.4, fill:COLORS[i], stroke:'#10222e', 'stroke-width':.9, filter:'url(#sh)' }, g);
   el('circle', { class:'ring', r:7.2 }, g);
-  el('text', { 'font-size':6.2, fill:'#10222e', y:.3 }, g).textContent = i + 1;
+  el('text', { 'font-size':LABELS[i].length > 1 ? 4.7 : 6.2, fill:'#10222e', y:.3 }, g).textContent = LABELS[i];
   players.push(g);
 }
 function oppMarker(k, fill, ink) {
@@ -271,7 +278,7 @@ function oppMarker(k, fill, ink) {
   const t = el('text', { 'font-size':4.6, fill:ink, y:.2 }, g);
   return { g, t };
 }
-const mSet = oppMarker('set', '#24465c', '#fff');     mSet.t.textContent = 'S';
+const mSet = oppMarker('set', '#24465c', '#fff');     mSet.t.textContent = '세';
 const mDecoy = oppMarker('decoy', '#7d8b95', '#fff'); mDecoy.t.textContent = '속';
 const mAtk = oppMarker('atk', '#ff3b30', '#fff');
 const gTarget = $('target'), route = $('route'), tossLine = $('tossLine'), ball = $('ball');
@@ -477,12 +484,12 @@ svg.addEventListener('pointermove', ev => {
   const w = work[current];
   if (drag.k[0] === 'p') {
     const i = +drag.k.slice(1);
-    w.pos[i] = [r(clamp(x, -3, 103)), r(clamp(y, 5, 106))];
+    w.pos[i] = [r(clamp(x, -1, 101)), r(clamp(y, 5, 106))];
     cur[i] = w.pos[i];
   } else if (drag.k === 'target') {
     w.target = [r(clamp(x, 1, 99)), r(clamp(y, 4, 99))];
   } else {
-    w[drag.k] = [r(clamp(x, -3, 103)), r(clamp(y, -52, -5))];
+    w[drag.k] = [r(clamp(x, -1, 101)), r(clamp(y, -27, -5))];
   }
   draw();
 });
