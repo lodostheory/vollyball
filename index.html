@@ -217,11 +217,11 @@ const DEFAULTS = {
   time:  { pos:[[40,6],[55,5],[65,5],[16,38],[46,34],[80,30],[22,70],[50,82],[80,72]],
            set:[40,-5], atk:[60,-8], decoy:[49,-5], target:[40,58] },
 };
+// '속공'(quick)은 A속공과 겹쳐 버튼에서 뺐다. 저장 데이터 형식을 유지하려고 DEFAULTS 에는 남겨 둔다.
 const PATTERNS = [
   { id:'base',  name:'기본',    tag:''   },
   { id:'left',  name:'레프트',  tag:'L'  },
   { id:'right', name:'라이트',  tag:'R'  },
-  { id:'quick', name:'속공',    tag:'속' },
   { id:'a',     name:'A속공',   tag:'A'  },
   { id:'b',     name:'B속공',   tag:'B'  },
   { id:'ba',    name:'BA속공',  tag:'BA' },
