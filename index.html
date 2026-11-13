@@ -101,7 +101,8 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
 
 /* SVG */
 .pl{cursor:default}
-.editing .pl,.editing .opp,.editing #target{cursor:grab}
+.editing .pl,.editing .opp,.editing .tgt{cursor:grab}
+.tgt text{font-weight:900;text-anchor:middle;dominant-baseline:central;pointer-events:none}
 .pl text,.opp text{font-weight:900;text-anchor:middle;dominant-baseline:central;pointer-events:none}
 .ring{fill:none;stroke:#fff;stroke-width:.9;stroke-dasharray:2.2 1.6;opacity:0}
 .editing .ring{opacity:.95;animation:spin 6s linear infinite;transform-box:fill-box;transform-origin:center}
@@ -152,16 +153,10 @@ button{font:inherit;color:inherit;border:0;cursor:pointer}
       <!-- 공격 루트 -->
       <g id="attack">
         <line id="tossLine" stroke="#fff" stroke-width=".7" stroke-dasharray="1.5 1.5" opacity=".7"/>
-        <line id="route" stroke="#ff3b30" stroke-width="1.8" stroke-linecap="round" marker-end="url(#arrow)"/>
-        <g id="target">
-          <circle r="9" fill="transparent"/>
-          <circle r="4.2" fill="#ff3b30" opacity=".25"/>
-          <circle r="4.2" fill="none" stroke="#ff3b30" stroke-width=".8"/>
-          <circle class="ring" r="6.4"/>
-        </g>
       </g>
       <g id="opps"></g>
       <g id="players"></g>
+      <g id="targets"></g>
       <circle id="ball" r="2.6" fill="#fff36b" stroke="#1b4fd8" stroke-width=".7" filter="url(#sh)" pointer-events="none"/>
     </svg>
   </main>
@@ -205,23 +200,23 @@ const mx = p => [100 - p[0], p[1]];
 const BASE = [[20,12],[50,12],[80,45],[20,45],[50,45],[80,12],[20,80],[50,80],[80,80]];
 const LEFT = { // 상대 레프트 공격 = 화면 오른쪽에서 들어옴
   pos:[[34,22],[74,5],[85,5],[14,40],[52,44],[80,28],[20,72],[52,84],[86,74]],
-  set:[40,-5], atk:[86,-7], target:[30,58] };
+  set:[40,-5], atk:[86,-7], target:[30,58], target2:[93,90], target3:[66,68] };
 const QUICK = { pos:[[39,5],[50,5],[61,5],[18,36],[50,30],[82,36],[22,70],[50,82],[78,70]],
-  set:[40,-5], atk:[54,-6], target:[52,50] };
+  set:[40,-5], atk:[54,-6], target:[52,50], target2:[24,46], target3:[78,46] };
 const BQ = { pos:[[36,12],[57,5],[67,5],[16,38],[46,36],[80,30],[22,70],[50,82],[80,72]],
-  set:[40,-5], atk:[62,-6], target:[44,56] };
+  set:[40,-5], atk:[62,-6], target:[44,56], target2:[82,50], target3:[20,62] };
 
 const DEFAULTS = {
   base:  { pos: BASE },
   left:  LEFT,
-  right: { pos: mirPos(LEFT.pos), set:[40,-5], atk: mx(LEFT.atk), target: mx(LEFT.target) },
+  right: { pos: mirPos(LEFT.pos), set:[40,-5], atk: mx(LEFT.atk), target: mx(LEFT.target), target2: mx(LEFT.target2), target3: mx(LEFT.target3) },
   quick: QUICK,
   a:     { pos:[[35,5],[46,5],[58,6],[18,36],[46,30],[82,36],[22,70],[50,82],[78,70]],
-           set:[40,-5], atk:[49,-6], target:[43,52] },
+           set:[40,-5], atk:[49,-6], target:[43,52], target2:[18,46], target3:[78,50] },
   b:     BQ,
-  ba:    { pos: mirPos(BQ.pos), set:[40,-5], atk:[31,-6], target:[54,56] },
+  ba:    { pos: mirPos(BQ.pos), set:[40,-5], atk:[31,-6], target:[54,56], target2:[16,50], target3:[80,64] },
   time:  { pos:[[40,6],[55,5],[65,5],[16,38],[46,34],[80,30],[22,70],[50,82],[80,72]],
-           set:[40,-5], atk:[60,-8], decoy:[49,-5], target:[40,58] },
+           set:[40,-5], atk:[60,-8], decoy:[49,-5], target:[40,58], target2:[84,56], target3:[62,82] },
 };
 // '속공'(quick)은 A속공과 겹쳐 버튼에서 뺐다. 저장 데이터 형식을 유지하려고 DEFAULTS 에는 남겨 둔다.
 const PATTERNS = [
@@ -242,7 +237,7 @@ function merge(s) {            // 저장본을 초기값 위에 덮어 완전한
     if (s) for (const k of Object.keys(d)) {
       const v = s[k]; if (!v) continue;
       if (Array.isArray(v.pos) && v.pos.length === 9) d[k].pos = v.pos;
-      for (const f of ['set','atk','target','decoy']) if (d[k][f] && Array.isArray(v[f])) d[k][f] = v[f];
+      for (const f of ['set','atk','target','target2','target3','decoy']) if (d[k][f] && Array.isArray(v[f])) d[k][f] = v[f];
     }
   } catch (e) {}
   return d;
@@ -318,8 +313,19 @@ function oppMarker(k, fill, ink) {
 const mSet = oppMarker('set', '#24465c', '#fff');     mSet.t.textContent = '세';
 const mDecoy = oppMarker('decoy', '#7d8b95', '#fff'); mDecoy.t.textContent = '속';
 const mAtk = oppMarker('atk', '#ff3b30', '#fff');
-const gTarget = $('target'), route = $('route'), tossLine = $('tossLine'), ball = $('ball');
-gTarget.setAttribute('data-k', 'target');
+const tossLine = $('tossLine'), ball = $('ball');
+/* 공격 화살표 3개: ①(공이 날아가는 주 코스) ② ③ */
+const TKEYS = ['target', 'target2', 'target3'];
+const routes = TKEYS.map(() => el('line', { stroke:'#ff3b30', 'stroke-width':1.8, 'stroke-linecap':'round', 'marker-end':'url(#arrow)' }, $('attack')));
+const gTargets = TKEYS.map((k, i) => {
+  const g = el('g', { class:'tgt', 'data-k':k }, $('targets'));   // 선수 위에 그려 겹쳐도 잡을 수 있게
+  el('circle', { r:6, fill:'transparent' }, g);
+  el('circle', { r:4.2, fill:'#ff3b30', opacity:.25 }, g);
+  el('circle', { r:4.2, fill:'none', stroke:'#ff3b30', 'stroke-width':.8 }, g);
+  el('circle', { class:'ring', r:6.4 }, g);
+  el('text', { 'font-size':4.4, fill:'#fff', y:.2 }, g).textContent = i + 1;
+  return g;
+});
 
 const tr = (g, p, s) => g.setAttribute('transform', `translate(${p[0]} ${p[1] + NET})` + (s ? ` scale(${s})` : ''));
 const lerp = (a, b, u) => [a[0] + (b[0] - a[0]) * u, a[1] + (b[1] - a[1]) * u];
@@ -353,15 +359,14 @@ function drawPlayers() {
 /* 공격(정지 상태) */
 function drawAttack() {
   const p = data()[current], on = current !== 'base';
-  show($('attack'), on); show(mAtk.g, on); show(mSet.g, on); show(mDecoy.g, on && !!p.decoy); show(ball, on);
+  show($('attack'), on); show($('targets'), on); show(mAtk.g, on); show(mSet.g, on); show(mDecoy.g, on && !!p.decoy); show(ball, on);
   if (!on) return;
   mAtk.t.textContent = PATTERNS.find(x => x.id === current).tag;
   mAtk.t.setAttribute('font-size', current === 'ba' ? 3.8 : 4.6);
   tr(mSet.g, p.set); tr(mAtk.g, p.atk); if (p.decoy) tr(mDecoy.g, p.decoy);
-  tr(gTarget, p.target);
+  TKEYS.forEach((k, i) => { tr(gTargets[i], p[k]); setLine(routes[i], p.atk, p[k], 2.5); routes[i].style.opacity = 1; gTargets[i].style.opacity = 1; });
   setLine(tossLine, p.set, p.atk, 5);
-  setLine(route, p.atk, p.target, 2.5);
-  route.style.opacity = 1; gTarget.style.opacity = 1; tossLine.style.opacity = .7;
+  tossLine.style.opacity = .7;
   tr(ball, p.target); ball.style.opacity = editing ? 0 : 1;
 }
 function draw() { drawPlayers(); drawAttack(); }
@@ -382,7 +387,7 @@ function play(fromBase) {
   const T_HIT  = slow ? 860 : 640;             // 스파이크 시작
   const T_FLY  = 300;                          // 스파이크 비행
   const total = isAtk ? Math.max(T_MOVE, T_HIT + T_FLY) + 60 : T_MOVE;
-  if (isAtk) { route.style.opacity = 0; gTarget.style.opacity = .35; tr(ball, p.set); ball.style.opacity = 1; }
+  if (isAtk) { routes.forEach(r => r.style.opacity = 0); gTargets.forEach(g => g.style.opacity = .35); tr(ball, p.set); ball.style.opacity = 1; }
   drawPlayers();
   let t0 = 0;
   const step = now => {
@@ -401,8 +406,10 @@ function play(fromBase) {
         } else {                                // 스파이크: 공격수 → 목표 지점
           const k = clamp((t - T_HIT) / T_FLY, 0, 1), b = lerp(p.atk, p.target, k * k);
           tr(ball, b, 1.15 - .15 * k);
-          route.style.opacity = 1; setLine(route, p.atk, b, 2.5);
-          gTarget.style.opacity = .35 + .65 * k;
+          TKEYS.forEach((key, i) => {             // 화살표 3개가 동시에 뻗는다
+            routes[i].style.opacity = 1; setLine(routes[i], p.atk, lerp(p.atk, p[key], k * k), 2.5);
+            gTargets[i].style.opacity = .35 + .65 * k;
+          });
         }
         if (p.decoy) {                          // 시간차: 속공수가 먼저 뜬다
           const k = clamp((t - 120) / 380, 0, 1);
@@ -543,8 +550,8 @@ svg.addEventListener('pointermove', ev => {
     const i = +drag.k.slice(1);
     w.pos[i] = [r(clamp(x, -1, 101)), r(clamp(y, 5, 106))];
     cur[i] = w.pos[i];
-  } else if (drag.k === 'target') {
-    w.target = [r(clamp(x, 1, 99)), r(clamp(y, 4, 99))];
+  } else if (drag.k.startsWith('target')) {
+    w[drag.k] = [r(clamp(x, 1, 99)), r(clamp(y, 4, 99))];
   } else {
     w[drag.k] = [r(clamp(x, -1, 101)), r(clamp(y, -27, -5))];
   }

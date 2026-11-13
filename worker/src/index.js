@@ -30,7 +30,7 @@ function cleanData(d) {
     const v = d[id];
     if (!v || !Array.isArray(v.pos) || v.pos.length !== 9 || !v.pos.every(isPoint)) return null;
     out[id] = { pos: v.pos };
-    for (const f of ['set', 'atk', 'target', 'decoy']) {
+    for (const f of ['set', 'atk', 'target', 'target2', 'target3', 'decoy']) {
       if (v[f] === undefined) continue;
       if (!isPoint(v[f])) return null;
       out[id][f] = v[f];
