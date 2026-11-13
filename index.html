@@ -247,8 +247,8 @@ const el = (tag, attrs, parent) => {
 };
 const LABELS = ['S','A','BA','L','M','R','LB','MB','RB'];
 const COLORS = ['#ff8a3d','#ff6b9d','#c792ff','#ffd23f','#9be564','#2ec4b6','#4cc9f0','#8fa8ff','#f4efe0'];
-/* 우리 코트 3×3 구역: 네트 쪽 왼쪽부터 시계방향(가운데가 9) */
-const ZONES = [[1,2,3],[8,9,4],[7,6,5]];
+/* 우리 코트 3×3 구역: 네트 쪽 왼쪽부터 줄 단위로 1~9 */
+const ZONES = [[1,2,3],[4,5,6],[7,8,9]];
 for (const v of [100/3, 200/3]) {
   el('line', { x1:v, y1:NET, x2:v, y2:NET+100, stroke:'#e6e9ec', 'stroke-width':.5, opacity:.6 }, $('zones'));
   el('line', { x1:0, y1:NET+v, x2:100, y2:NET+v, stroke:'#e6e9ec', 'stroke-width':.5, opacity:.6 }, $('zones'));
