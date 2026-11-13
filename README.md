@@ -10,8 +10,8 @@
 
 ## 휴대폰에서 실행하기 (GitHub Pages)
 
-1. 저장소 **Settings → Pages → Build and deployment** 에서 Source 를 `Deploy from a branch`, Branch 를 `main` / `/ (root)` 로 지정
-2. 1~2분 뒤 `https://lodostheory.github.io/vollyball/` 접속
+1. GitHub Pages 는 `gh-pages` 브랜치로 게시됨. `main` 에 올리면 `.github/workflows/pages.yml` 이 자동으로 `gh-pages` 에 반영
+2. 휴대폰 브라우저에서 `https://lodostheory.github.io/vollyball/` 접속 (반영까지 1~2분)
 3. 아이폰: Safari 공유 버튼 → **홈 화면에 추가** / 갤럭시: Chrome 메뉴 → **홈 화면에 추가**
 
 ## 화면 보는 법
